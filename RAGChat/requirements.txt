@@ -1,0 +1,11 @@
+streamlit
+google-generativeai
+python-dotenv
+langchain
+PyPDF2
+scikit-learn
+langchain-google-genai
+PyMuPDF
+bs4
+pil
+io
