@@ -78,6 +78,24 @@ def generate_dynamic_follow_ups(response_text):
 
     return follow_up_suggestions[:3]
 
+# Function to handle suggestion submission
+def submit_suggestion(suggestion):
+    st.session_state['suggestions'] = []
+    st.session_state['chat_history'].append(("You", suggestion, []))
+
+    # Include images based on the checkbox state
+    if st.session_state['include_images'] and is_image_request(suggestion):
+        image_urls = scrape_images(suggestion)
+        st.session_state['chat_history'].append(("Bot", "", image_urls))  # Only images, no text response
+    else:
+        response, new_suggestions = get_gemini_response(suggestion, st.session_state['chat_history'])
+        image_urls = scrape_images(suggestion) if st.session_state['include_images'] else []
+        st.session_state['chat_history'].append(("Bot", response, image_urls))
+        st.session_state['suggestions'] = new_suggestions
+
+    # Reset the checkbox state after processing the response
+    st.session_state['include_images'] = False
+
 # Initialize Streamlit app
 st.set_page_config(page_title="Interactive Q&A Demo", layout="wide")
 
@@ -155,11 +173,49 @@ if 'input_text' not in st.session_state:
 if 'include_images' not in st.session_state:
     st.session_state['include_images'] = False  # Initialize checkbox state for each question
 
+# Function to handle re-asking a question
+def re_ask_question(question_index):
+    # Clear suggestions
+    st.session_state['suggestions'] = []
+
+    # Retrieve the re-asked question
+    question = st.session_state['chat_history'][question_index][1]
+
+    # Check if the question initially included images
+    include_images = st.session_state['include_images']
+
+    # Remove all entries after the re-asked question
+    st.session_state['chat_history'] = st.session_state['chat_history'][:question_index + 1]
+
+    # Add the re-asked question again in place of the previous response
+    if include_images and is_image_request(question):
+        # If images are requested, reload images based on the question
+        image_urls = scrape_images(question)
+        st.session_state['chat_history'][question_index] = ("You", question, [])
+        st.session_state['chat_history'].append(("Bot", "", image_urls))  # Only images, no text response
+    else:
+        # Get a fresh response from the model
+        response, suggestions = get_gemini_response(question, st.session_state['chat_history'])
+        image_urls = scrape_images(question) if include_images else []
+        st.session_state['chat_history'][question_index] = ("You", question, [])
+        st.session_state['chat_history'].append(("Bot", response, image_urls))
+        st.session_state['suggestions'] = suggestions
+
+    # Reset the checkbox state after processing the response
+    st.session_state['include_images'] = False
+
+
 # Function to render chat messages with images below responses
 def render_chat():
-    for role, message, images in st.session_state['chat_history']:
+    for i, (role, message, images) in enumerate(st.session_state['chat_history']):
         if role == "You":
-            st.markdown(f"<div class='user-message'>{message}</div>", unsafe_allow_html=True)
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.markdown(f"<div class='user-message'>{message}</div>", unsafe_allow_html=True)
+            with col2:
+                # Add a re-ask button for each user question
+                if st.button("Re-ask", key=f"reask_{i}", help="Re-ask this question", on_click=lambda idx=i: re_ask_question(idx)):
+                    pass
         else:
             # Display bot message and images based on the inclusion setting
             if images:
@@ -173,24 +229,6 @@ def render_chat():
                         st.image(img, use_column_width=True, width=350)  # Larger image size for visibility
             else:
                 st.markdown(f"<div class='bot-message'>{message}</div>", unsafe_allow_html=True)
-
-# Function to handle suggestion submission
-def submit_suggestion(suggestion):
-    st.session_state['suggestions'] = []
-    st.session_state['chat_history'].append(("You", suggestion, []))
-
-    # Include images based on the checkbox state
-    if st.session_state['include_images'] and is_image_request(suggestion):
-        image_urls = scrape_images(suggestion)
-        st.session_state['chat_history'].append(("Bot", "", image_urls))  # Only images, no text response
-    else:
-        response, new_suggestions = get_gemini_response(suggestion, st.session_state['chat_history'])
-        image_urls = scrape_images(suggestion) if st.session_state['include_images'] else []
-        st.session_state['chat_history'].append(("Bot", response, image_urls))
-        st.session_state['suggestions'] = new_suggestions
-
-    # Reset the checkbox state after processing the response
-    st.session_state['include_images'] = False
 
 # Render chat history
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
@@ -238,4 +276,4 @@ with col1:
         on_change=submit_question,
     )
 with col2:
-    st.session_state['include_images'] = st.checkbox("Include images", value=False)
+    st.session_state['include_images'] = st.checkbox("Include images", value=False)  
