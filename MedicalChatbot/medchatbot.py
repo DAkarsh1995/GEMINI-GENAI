@@ -55,9 +55,6 @@ def generate_response(chat_history, is_collecting_info, question_count):
                 follow_up_question = chunk.text.strip()
                 break
 
-        # Remove the prefix "Relevant follow-up question:" if it appears
-        follow_up_question = follow_up_question.replace("Relevant follow-up question:", "").strip()
-
         return follow_up_question, False  # False indicates more questions are needed
 
 # Function to handle question submission and follow-up flow
