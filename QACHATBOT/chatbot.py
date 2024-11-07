@@ -5,6 +5,9 @@ import requests
 from bs4 import BeautifulSoup
 from io import BytesIO
 from PIL import Image
+import pandas as pd
+
+
 
 # Set up environment variables
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "D:/langchain endpoints/langchain-439407-c27f03a83218.json"
